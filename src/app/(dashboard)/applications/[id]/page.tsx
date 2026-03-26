@@ -120,6 +120,10 @@ export default function ApplicationDetailPage() {
     window.open(`/api/export/resume?id=${id}&preview=1`, "_blank");
   };
 
+  const previewCover = () => {
+    window.open(`/api/export/cover?id=${id}&preview=1`, "_blank");
+  };
+
   const downloadCover = () => {
     window.open(`/api/export/cover?id=${id}`, "_blank");
   };
@@ -219,6 +223,12 @@ export default function ApplicationDetailPage() {
           className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
         >
           Download Resume PDF
+        </button>
+        <button
+          onClick={previewCover}
+          className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+        >
+          Preview Cover Letter
         </button>
         <button
           onClick={downloadCover}

@@ -41,6 +41,9 @@ export async function GET(request: Request) {
     email: (snapshot.email as string) ?? profile?.email ?? "",
     phone: (snapshot.phone as string) ?? profile?.phone ?? "",
     location: (snapshot.location as string) ?? profile?.location ?? "",
+    linkedin: (snapshot.linkedin as string) ?? profile?.linkedin ?? "",
+    github: (snapshot.github as string) ?? profile?.github ?? "",
+    website: (snapshot.website as string) ?? profile?.website ?? "",
     companyName: app.companyName,
     roleTitle: app.roleTitle,
     coverLetterBody: app.coverLetterBody,
@@ -49,10 +52,15 @@ export async function GET(request: Request) {
   const buffer = await renderToBuffer(<CoverLetterDocument data={data} />);
   const uint8 = new Uint8Array(buffer);
 
+  const preview = searchParams.get("preview") === "1";
+  const disposition = preview
+    ? `inline; filename="${app.companyName.replace(/[^a-zA-Z0-9]/g, "_")}_CoverLetter.pdf"`
+    : `attachment; filename="${app.companyName.replace(/[^a-zA-Z0-9]/g, "_")}_CoverLetter.pdf"`;
+
   return new NextResponse(uint8, {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="${app.companyName.replace(/[^a-zA-Z0-9]/g, "_")}_CoverLetter.pdf"`,
+      "Content-Disposition": disposition,
     },
   });
 }

@@ -41,20 +41,29 @@ export async function POST(request: Request) {
 
   const systemPrompt = `You are a professional resume writer. Given the candidate's master profile and a job description, produce:
 
-1. A tailored professional summary (2-3 sentences) that highlights the candidate's most relevant strengths for this specific role.
-2. Tailored experience bullet points for each role in the candidate's experience. Rewrite existing bullets to emphasize skills and achievements that match the job description. Keep the same employers, titles, and dates — NEVER invent or change factual information.
-3. A curated list of skills most relevant to the job description (reorder by relevance, include all that apply).
-4. Tailored project descriptions for each project in the candidate's profile. Rewrite bullets to emphasize relevance to the job description. Keep the same project names, technologies, and dates — NEVER invent projects.
+Before producing output, scan the job description and extract:
+- Every programming language explicitly mentioned (e.g. Python, TypeScript, Go, Java, Rust, SQL, etc.)
+- Every framework, library, and tool mentioned (e.g. React, Node.js, Django, Kubernetes, etc.)
+Call this the "required tech stack".
+
+Then produce:
+
+1. A tailored professional summary (2-3 sentences) that highlights the candidate's most relevant strengths for this specific role. Naturally mention 1-2 languages or technologies from the required tech stack that the candidate actually has.
+2. A curated selection of the candidate's most relevant work experiences for this role. Strongly prefer experiences where the candidate used languages or technologies from the required tech stack. Omit roles that add little value for this specific position. For each selected experience, rewrite the bullets to explicitly name the relevant languages and technologies used (e.g. "Built REST APIs in Python/FastAPI" rather than just "Built REST APIs") where the original bullets support it. Keep the same employers, titles, and dates — NEVER invent or change factual information. Include at least 1 experience and no more than the top 4-5 most relevant roles.
+3. A curated list of skills most relevant to the job description. Place languages and technologies from the required tech stack that the candidate actually has at the top, ordered by how prominently they appear in the job description.
+4. A curated selection of the candidate's most relevant projects for this role. Strongly prefer projects that used languages or technologies from the required tech stack. Omit projects that are not relevant. For each selected project, rewrite bullets to explicitly call out the relevant languages/technologies used. Keep the same project names, technologies, and dates — NEVER invent projects. Include at most the top 3-4 most relevant projects.
 5. A tailored list of hobbies and interests most relevant to the role and company culture. Reorder by relevance and keep only genuine hobbies from the candidate's list — NEVER invent hobbies.
-6. A professional cover letter body (3-4 paragraphs, no addresses/headers — the template handles formatting). The letter should reference the specific company and role title.
+6. A professional cover letter body (3-4 paragraphs, no addresses/headers — the template handles formatting). The letter should reference the specific company, role title, and 2-3 languages or technologies from the required tech stack that the candidate has.
 
 CRITICAL RULES:
 - NEVER invent employers, job titles, dates, degrees, certifications, or projects.
 - NEVER add experience or projects the candidate doesn't have.
+- NEVER claim the candidate knows a language or technology that does not appear anywhere in their profile.
 - Keep original date ranges exactly as provided.
 - Quantify achievements where the original bullets support it.
 - Use strong action verbs.
 - Optimize for ATS keyword matching without keyword stuffing.
+- Only include experiences and projects from the candidate's actual profile — select the most relevant subset, do not include all of them if some are not relevant.
 - If the candidate has no projects, return an empty array for tailoredProjects.
 - If the candidate has no hobbies, return an empty array for tailoredHobbies.
 
