@@ -98,7 +98,7 @@ ${app.jobDescription}`;
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-5.5-mini",
+      model: "gpt-5.4-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
