@@ -1,8 +1,12 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
 import type { ExperienceItem } from "@/lib/types";
+
+const AUTOSAVE_MS = 850;
+
+type SaveState = "idle" | "saving" | "saved" | "error";
 
 interface ApplicationData {
   id: string;
@@ -19,17 +23,29 @@ interface ApplicationData {
   sectionConfig: { id: string; type: string; title: string; visible: boolean; order: number }[];
 }
 
-const STATUSES = ["draft", "generated", "applied", "interview", "offer", "rejected"];
+const STATUSES = ["draft", "generated", "applied", "interview", "offer", "rejected"] as const;
 
 export default function ApplicationDetailPage() {
-  const { id } = useParams<{ id: string }>();
+  const params = useParams<{ id: string }>();
+  const id = typeof params.id === "string" ? params.id : "";
   const router = useRouter();
   const [app, setApp] = useState<ApplicationData | null>(null);
-  const [saving, setSaving] = useState(false);
   const [generating, setGenerating] = useState(false);
   const [status, setStatus] = useState("");
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+
+  const appRef = useRef<ApplicationData | null>(null);
+  const skipAutoSaveRef = useRef(true);
+  const saveGenerationRef = useRef(0);
 
   useEffect(() => {
+    appRef.current = app;
+  }, [app]);
+
+  useEffect(() => {
+    if (!id) return;
+    skipAutoSaveRef.current = true;
+    setApp(null);
     fetch(`/api/applications/${id}`)
       .then((r) => r.json())
       .then((data) => {
@@ -44,21 +60,50 @@ export default function ApplicationDetailPage() {
       });
   }, [id]);
 
-  const save = useCallback(async () => {
+  useEffect(() => {
     if (!app) return;
-    setSaving(true);
-    setStatus("");
-    const res = await fetch(`/api/applications/${id}`, {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(app),
-    });
-    setSaving(false);
-    setStatus(res.ok ? "Saved!" : "Error saving");
+
+    if (skipAutoSaveRef.current) {
+      skipAutoSaveRef.current = false;
+      setSaveState("idle");
+      return;
+    }
+
+    let cancelled = false;
+    const gen = ++saveGenerationRef.current;
+    setSaveState("saving");
+
+    const debounceTimer = window.setTimeout(async () => {
+      if (cancelled || saveGenerationRef.current !== gen) return;
+      const payload = appRef.current;
+      if (!payload || !id || payload.id !== id) return;
+
+      const res = await fetch(`/api/applications/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      if (cancelled || saveGenerationRef.current !== gen) return;
+
+      if (res.ok) {
+        setSaveState("saved");
+        window.setTimeout(() => {
+          if (!cancelled) setSaveState("idle");
+        }, 2000);
+      } else {
+        setSaveState("error");
+      }
+    }, AUTOSAVE_MS);
+
+    return () => {
+      cancelled = true;
+      window.clearTimeout(debounceTimer);
+    };
   }, [app, id]);
 
   const generate = async () => {
-    if (!app) return;
+    if (!app || !id) return;
     setGenerating(true);
     setStatus("");
     const res = await fetch("/api/ai/tailor", {
@@ -112,19 +157,70 @@ export default function ApplicationDetailPage() {
     router.push("/applications");
   };
 
-  const downloadResume = () => {
+  const flushSaveBeforeExport = async (): Promise<boolean> => {
+    const payload = appRef.current;
+    if (!payload || !id || payload.id !== id) return false;
+    const flushGen = ++saveGenerationRef.current;
+    setSaveState("saving");
+    try {
+      const res = await fetch(`/api/applications/${id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+      if (saveGenerationRef.current !== flushGen) return res.ok;
+      if (res.ok) {
+        setSaveState("saved");
+        window.setTimeout(() => {
+          setSaveState((s) => (s === "saved" ? "idle" : s));
+        }, 2000);
+      } else {
+        setSaveState("error");
+      }
+      return res.ok;
+    } catch {
+      setSaveState("error");
+      return false;
+    }
+  };
+
+  const downloadResume = async () => {
+    const ok = await flushSaveBeforeExport();
+    if (!ok) {
+      setStatus("Error: could not save before export.");
+      return;
+    }
+    setStatus("");
     window.open(`/api/export/resume?id=${id}`, "_blank");
   };
 
-  const previewResume = () => {
+  const previewResume = async () => {
+    const ok = await flushSaveBeforeExport();
+    if (!ok) {
+      setStatus("Error: could not save before export.");
+      return;
+    }
+    setStatus("");
     window.open(`/api/export/resume?id=${id}&preview=1`, "_blank");
   };
 
-  const previewCover = () => {
+  const previewCover = async () => {
+    const ok = await flushSaveBeforeExport();
+    if (!ok) {
+      setStatus("Error: could not save before export.");
+      return;
+    }
+    setStatus("");
     window.open(`/api/export/cover?id=${id}&preview=1`, "_blank");
   };
 
-  const downloadCover = () => {
+  const downloadCover = async () => {
+    const ok = await flushSaveBeforeExport();
+    if (!ok) {
+      setStatus("Error: could not save before export.");
+      return;
+    }
+    setStatus("");
     window.open(`/api/export/cover?id=${id}`, "_blank");
   };
 
@@ -149,6 +245,10 @@ export default function ApplicationDetailPage() {
     }
   };
 
+  if (!id) {
+    return <div className="text-center py-20 text-gray-400">Invalid application.</div>;
+  }
+
   if (!app) {
     return <div className="text-center py-20 text-gray-400">Loading...</div>;
   }
@@ -160,7 +260,7 @@ export default function ApplicationDetailPage() {
           <h1 className="text-2xl font-bold">
             {app.roleTitle} @ {app.companyName}
           </h1>
-          <div className="flex items-center gap-3 mt-1">
+          <div className="flex items-center gap-3 mt-1 flex-wrap">
             <select
               className="text-sm border rounded px-2 py-1"
               value={app.status}
@@ -172,6 +272,9 @@ export default function ApplicationDetailPage() {
                 </option>
               ))}
             </select>
+            {saveState === "saving" && <span className="text-sm text-gray-500">Saving…</span>}
+            {saveState === "saved" && <span className="text-sm text-green-600">All changes saved</span>}
+            {saveState === "error" && <span className="text-sm text-red-600">Could not auto-save</span>}
           </div>
         </div>
         <div className="flex gap-2">
@@ -187,13 +290,6 @@ export default function ApplicationDetailPage() {
             className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 disabled:opacity-50 transition-colors"
           >
             {generating ? "Generating..." : "AI Generate"}
-          </button>
-          <button
-            onClick={save}
-            disabled={saving}
-            className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {saving ? "Saving..." : "Save"}
           </button>
           <button
             onClick={deleteApp}
@@ -267,7 +363,12 @@ export default function ApplicationDetailPage() {
 
       {/* Tailored Experience */}
       <section className="bg-white rounded-lg border p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Tailored Experience</h2>
+        <div>
+          <h2 className="text-lg font-semibold">Tailored Experience</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Remove any role to keep it off the exported resume; edits save automatically before export.
+          </p>
+        </div>
         {app.tailoredExperience.length === 0 && (
           <p className="text-sm text-gray-400">
             Click &ldquo;AI Generate&rdquo; to create tailored bullet points.
@@ -275,9 +376,21 @@ export default function ApplicationDetailPage() {
         )}
         {app.tailoredExperience.map((exp, i) => (
           <div key={exp.id || i} className="border rounded-lg p-4 space-y-2 bg-gray-50">
-            <p className="font-medium text-sm">
-              {exp.title} &mdash; {exp.company}
-            </p>
+            <div className="flex justify-between items-start gap-2">
+              <p className="font-medium text-sm">
+                {exp.title} &mdash; {exp.company}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = app.tailoredExperience.filter((_, idx) => idx !== i);
+                  setApp({ ...app, tailoredExperience: next });
+                }}
+                className="shrink-0 text-red-400 hover:text-red-600 text-sm"
+              >
+                Remove from resume
+              </button>
+            </div>
             {exp.bullets.map((b, j) => (
               <div key={j} className="flex gap-2">
                 <span className="text-gray-400 mt-2">-</span>
