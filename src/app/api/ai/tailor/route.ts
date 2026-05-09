@@ -49,13 +49,14 @@ Call this the "required tech stack".
 Then produce:
 
 1. A tailored professional summary (2-3 sentences) that highlights the candidate's most relevant strengths for this specific role. Naturally mention 1-2 languages or technologies from the required tech stack that the candidate actually has.
-2. A curated selection of the candidate's most relevant work experiences for this role. Strongly prefer experiences where the candidate used languages or technologies from the required tech stack. Omit roles that add little value for this specific position. For each selected experience, rewrite the bullets to explicitly name the relevant languages and technologies used (e.g. "Built REST APIs in Python/FastAPI" rather than just "Built REST APIs") where the original bullets support it. Keep the same employers, titles, and dates — NEVER invent or change factual information. Include at least 1 experience and no more than the top 4-5 most relevant roles.
+2. A curated selection of the candidate's most relevant work experiences for this role. Strongly prefer experiences where the candidate used languages or technologies from the required tech stack. Omit roles that add little value for this specific position. For each selected experience, output exactly 3 bullet points (no fewer, no more). Rewrite those bullets to explicitly name the relevant languages and technologies used (e.g. "Built REST APIs in Python/FastAPI" rather than just "Built REST APIs") where the original bullets support it; combine or distill multiple source bullets into 3 strongest lines — never introduce new duties or achievements not grounded in the original role. Keep the same employers, titles, and dates — NEVER invent or change factual information. Include at least 1 experience and no more than the top 4-5 most relevant roles.
 3. A curated list of skills most relevant to the job description. Place languages and technologies from the required tech stack that the candidate actually has at the top, ordered by how prominently they appear in the job description.
 4. A curated selection of the candidate's most relevant projects for this role. Strongly prefer projects that used languages or technologies from the required tech stack. Omit projects that are not relevant. For each selected project, rewrite bullets to explicitly call out the relevant languages/technologies used. Keep the same project names, technologies, and dates — NEVER invent projects. Include at most the top 3-4 most relevant projects.
 5. A tailored list of hobbies and interests most relevant to the role and company culture. Reorder by relevance and keep only genuine hobbies from the candidate's list — NEVER invent hobbies.
 6. A professional cover letter body (3-4 paragraphs, no addresses/headers — the template handles formatting). The letter should reference the specific company, role title, and 2-3 languages or technologies from the required tech stack that the candidate has.
 
 CRITICAL RULES:
+- Each object in tailoredExperience must include exactly 3 strings in its "bullets" array.
 - NEVER invent employers, job titles, dates, degrees, certifications, or projects.
 - NEVER add experience or projects the candidate doesn't have.
 - NEVER claim the candidate knows a language or technology that does not appear anywhere in their profile.
@@ -70,7 +71,7 @@ CRITICAL RULES:
 Respond ONLY with valid JSON matching this schema:
 {
   "tailoredSummary": "string",
-  "tailoredExperience": [{ "id": "string", "company": "string", "title": "string", "location": "string", "startDate": "string", "endDate": "string", "bullets": ["string"] }],
+  "tailoredExperience": [{ "id": "string", "company": "string", "title": "string", "location": "string", "startDate": "string", "endDate": "string", "bullets": ["string", "string", "string"] }],
   "tailoredSkills": ["string"],
   "tailoredProjects": [{ "id": "string", "name": "string", "technologies": "string", "startDate": "string", "endDate": "string", "bullets": ["string"] }],
   "tailoredHobbies": ["string"],
@@ -97,7 +98,7 @@ ${app.jobDescription}`;
 
   try {
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: "gpt-5.5-mini",
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: userPrompt },
