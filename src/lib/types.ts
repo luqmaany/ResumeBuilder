@@ -117,3 +117,32 @@ export const DEFAULT_SECTION_CONFIG: SectionConfigItem[] = [
   { id: "hobbies", type: "hobbies", title: "Hobbies & Interests", visible: true, order: 5 },
   { id: "certifications", type: "certifications", title: "Certifications", visible: true, order: 6 },
 ];
+
+export function normalizeSectionConfig(
+  saved: SectionConfigItem[] | unknown[] | null | undefined
+): SectionConfigItem[] {
+  const config =
+    Array.isArray(saved) && saved.length > 0
+      ? (saved as SectionConfigItem[])
+      : DEFAULT_SECTION_CONFIG;
+  const savedTypes = new Set(config.map((s) => s.type));
+  const missing = DEFAULT_SECTION_CONFIG.filter((d) => !savedTypes.has(d.type));
+  if (missing.length === 0) return config;
+  const maxOrder = Math.max(...config.map((s) => s.order));
+  return [...config, ...missing.map((m, i) => ({ ...m, order: maxOrder + 1 + i }))];
+}
+
+export function isSectionVisible(
+  config: SectionConfigItem[],
+  type: SectionConfigItem["type"]
+): boolean {
+  return config.find((s) => s.type === type)?.visible ?? true;
+}
+
+export function setSectionVisible(
+  config: SectionConfigItem[],
+  type: SectionConfigItem["type"],
+  visible: boolean
+): SectionConfigItem[] {
+  return config.map((s) => (s.type === type ? { ...s, visible } : s));
+}

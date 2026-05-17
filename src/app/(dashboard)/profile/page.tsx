@@ -9,7 +9,7 @@ import type {
   ProjectItem,
   SectionConfigItem,
 } from "@/lib/types";
-import { DEFAULT_SECTION_CONFIG } from "@/lib/types";
+import { DEFAULT_SECTION_CONFIG, normalizeSectionConfig } from "@/lib/types";
 import {
   DndContext,
   closestCenter,
@@ -93,16 +93,7 @@ export default function ProfilePage() {
           hobbies: Array.isArray(data.hobbies) ? data.hobbies : [],
           certifications: Array.isArray(data.certifications) ? data.certifications : [],
           customSections: Array.isArray(data.customSections) ? data.customSections : [],
-          sectionConfig: (() => {
-            const saved = Array.isArray(data.sectionConfig) && data.sectionConfig.length > 0
-              ? data.sectionConfig
-              : DEFAULT_SECTION_CONFIG;
-            const savedTypes = new Set(saved.map((s: { type: string }) => s.type));
-            const missing = DEFAULT_SECTION_CONFIG.filter((d) => !savedTypes.has(d.type));
-            if (missing.length === 0) return saved;
-            const maxOrder = Math.max(...saved.map((s: { order: number }) => s.order));
-            return [...saved, ...missing.map((m, i) => ({ ...m, order: maxOrder + 1 + i }))];
-          })(),
+          sectionConfig: normalizeSectionConfig(data.sectionConfig),
         });
       });
   }, []);

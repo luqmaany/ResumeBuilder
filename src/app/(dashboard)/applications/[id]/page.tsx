@@ -2,7 +2,12 @@
 
 import { useEffect, useState, useRef } from "react";
 import { useParams, useRouter } from "next/navigation";
-import type { ExperienceItem } from "@/lib/types";
+import type { ExperienceItem, SectionConfigItem } from "@/lib/types";
+import {
+  isSectionVisible,
+  normalizeSectionConfig,
+  setSectionVisible,
+} from "@/lib/types";
 
 const AUTOSAVE_MS = 850;
 
@@ -20,7 +25,7 @@ interface ApplicationData {
   tailoredProjects: { id: string; name: string; technologies?: string; startDate?: string; endDate?: string; bullets: string[] }[];
   tailoredHobbies: string[];
   coverLetterBody: string;
-  sectionConfig: { id: string; type: string; title: string; visible: boolean; order: number }[];
+  sectionConfig: SectionConfigItem[];
 }
 
 const STATUSES = ["draft", "generated", "applied", "interview", "offer", "rejected"] as const;
@@ -55,7 +60,7 @@ export default function ApplicationDetailPage() {
           tailoredSkills: Array.isArray(data.tailoredSkills) ? data.tailoredSkills : [],
           tailoredProjects: Array.isArray(data.tailoredProjects) ? data.tailoredProjects : [],
           tailoredHobbies: Array.isArray(data.tailoredHobbies) ? data.tailoredHobbies : [],
-          sectionConfig: Array.isArray(data.sectionConfig) ? data.sectionConfig : [],
+          sectionConfig: normalizeSectionConfig(data.sectionConfig),
         });
       });
   }, [id]);
@@ -123,7 +128,7 @@ export default function ApplicationDetailPage() {
               tailoredProjects: data.tailoredProjects ?? prev.tailoredProjects,
               tailoredHobbies: data.tailoredHobbies ?? prev.tailoredHobbies,
               coverLetterBody: data.coverLetterBody ?? prev.coverLetterBody,
-              sectionConfig: data.sectionConfig ?? prev.sectionConfig,
+              sectionConfig: normalizeSectionConfig(data.sectionConfig ?? prev.sectionConfig),
               status: "generated",
             }
           : prev
@@ -142,7 +147,7 @@ export default function ApplicationDetailPage() {
     if (res.ok) {
       const data = await res.json();
       setApp((prev) =>
-        prev ? { ...prev, sectionConfig: data.sectionConfig } : prev
+        prev ? { ...prev, sectionConfig: normalizeSectionConfig(data.sectionConfig) } : prev
       );
       setStatus("Profile synced! Contact info, education, projects & section order updated.");
     } else {
@@ -430,7 +435,32 @@ export default function ApplicationDetailPage() {
 
       {/* Tailored Projects */}
       <section className="bg-white rounded-lg border p-6 space-y-4">
-        <h2 className="text-lg font-semibold">Tailored Projects</h2>
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold">Tailored Projects</h2>
+            <p className="text-xs text-gray-500 mt-1">
+              Uncheck to omit the whole section from the exported resume, or remove individual projects below.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-sm text-gray-700 shrink-0">
+            <input
+              type="checkbox"
+              checked={isSectionVisible(app.sectionConfig, "projects")}
+              onChange={(e) =>
+                setApp({
+                  ...app,
+                  sectionConfig: setSectionVisible(
+                    app.sectionConfig,
+                    "projects",
+                    e.target.checked
+                  ),
+                })
+              }
+              className="accent-blue-600"
+            />
+            Include on resume
+          </label>
+        </div>
         {app.tailoredProjects.length === 0 && (
           <p className="text-sm text-gray-400">
             Click &ldquo;AI Generate&rdquo; to create tailored project descriptions.
@@ -438,10 +468,22 @@ export default function ApplicationDetailPage() {
         )}
         {app.tailoredProjects.map((proj, i) => (
           <div key={proj.id || i} className="border rounded-lg p-4 space-y-2 bg-gray-50">
-            <p className="font-medium text-sm">
-              {proj.name}
-              {proj.technologies ? ` — ${proj.technologies}` : ""}
-            </p>
+            <div className="flex justify-between items-start gap-2">
+              <p className="font-medium text-sm">
+                {proj.name}
+                {proj.technologies ? ` — ${proj.technologies}` : ""}
+              </p>
+              <button
+                type="button"
+                onClick={() => {
+                  const next = app.tailoredProjects.filter((_, idx) => idx !== i);
+                  setApp({ ...app, tailoredProjects: next });
+                }}
+                className="shrink-0 text-red-400 hover:text-red-600 text-sm"
+              >
+                Remove from resume
+              </button>
+            </div>
             {proj.bullets.map((b, j) => (
               <div key={j} className="flex gap-2">
                 <span className="text-gray-400 mt-2">-</span>

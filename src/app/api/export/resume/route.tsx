@@ -5,6 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { getSessionUser } from "@/lib/session";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { ResumeDocument } from "@/lib/pdf/resume-template";
+import { isSectionVisible, normalizeSectionConfig } from "@/lib/types";
 import React from "react";
 
 async function buildResumeBuffer(request: Request) {
@@ -34,6 +35,12 @@ async function buildResumeBuffer(request: Request) {
   const profile = profileRows[0];
   const snapshot = (app.profileSnapshot ?? {}) as Record<string, unknown>;
 
+  const sectionConfig = normalizeSectionConfig(
+    app.sectionConfig as Parameters<typeof normalizeSectionConfig>[0]
+  );
+  const projectsVisible = isSectionVisible(sectionConfig, "projects");
+  const tailoredProjects = app.tailoredProjects as unknown[];
+
   const data = {
     fullName: (snapshot.fullName as string) ?? profile?.fullName ?? "",
     email: (snapshot.email as string) ?? profile?.email ?? "",
@@ -49,10 +56,12 @@ async function buildResumeBuffer(request: Request) {
     hobbies: ((app.tailoredHobbies as string[])?.length
       ? app.tailoredHobbies
       : (snapshot.hobbies ?? profile?.hobbies ?? [])) as string[],
-    projects: ((app.tailoredProjects as unknown[])?.length
-      ? app.tailoredProjects
-      : (snapshot.projects ?? profile?.projects ?? [])) as unknown[],
-    sectionConfig: (app.sectionConfig as unknown[]) ?? [],
+    projects: !projectsVisible
+      ? []
+      : ((tailoredProjects?.length
+          ? tailoredProjects
+          : (snapshot.projects ?? profile?.projects ?? [])) as unknown[]),
+    sectionConfig,
   };
 
   // @ts-expect-error react-pdf types are loose with jsonb data
