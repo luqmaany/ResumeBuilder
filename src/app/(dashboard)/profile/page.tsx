@@ -104,14 +104,14 @@ export default function ProfilePage() {
     }
   }, [profile, showErrors]);
 
-  const save = useCallback(async () => {
-    if (!profile) return;
+  const save = useCallback(async (): Promise<boolean> => {
+    if (!profile) return false;
     const validationErrors = validateProfile(profile);
     if (validationErrors.length > 0) {
       setErrors(validationErrors);
       setShowErrors(true);
       setStatus("");
-      return;
+      return false;
     }
     setErrors([]);
     setShowErrors(false);
@@ -123,12 +123,28 @@ export default function ProfilePage() {
       body: JSON.stringify(profile),
     });
     setSaving(false);
-    if (res.ok) setStatus("Saved!");
-    else {
-      const data = await res.json();
-      setStatus("Error: " + JSON.stringify(data.error));
+    if (res.ok) {
+      setStatus("Saved!");
+      return true;
     }
+    const data = await res.json();
+    setStatus("Error: " + JSON.stringify(data.error));
+    return false;
   }, [profile]);
+
+  const downloadResume = async () => {
+    const ok = await save();
+    if (!ok) return;
+    setStatus("");
+    window.open("/api/export/resume/profile", "_blank");
+  };
+
+  const previewResume = async () => {
+    const ok = await save();
+    if (!ok) return;
+    setStatus("");
+    window.open("/api/export/resume/profile?preview=1", "_blank");
+  };
 
   if (!profile) {
     return <div className="text-center py-20 text-gray-400">Loading profile...</div>;
@@ -149,7 +165,27 @@ export default function ProfilePage() {
           {saving ? "Saving..." : "Save"}
         </button>
       </div>
-      {status && <p className="text-sm text-green-600">{status}</p>}
+
+      <div className="flex gap-3 flex-wrap">
+        <button
+          onClick={previewResume}
+          className="px-4 py-2 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+        >
+          Preview Resume
+        </button>
+        <button
+          onClick={downloadResume}
+          className="px-4 py-2 border border-blue-600 text-blue-600 rounded-lg hover:bg-blue-50 transition-colors"
+        >
+          Download Resume PDF
+        </button>
+      </div>
+
+      {status && (
+        <p className={`text-sm ${status.startsWith("Error") ? "text-red-600" : "text-green-600"}`}>
+          {status}
+        </p>
+      )}
       {showErrors && errors.length > 0 && (
         <div className="bg-red-50 border border-red-200 rounded-lg p-4 space-y-1">
           <p className="text-sm font-semibold text-red-700">Please fix the following before saving:</p>
