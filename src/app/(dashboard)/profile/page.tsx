@@ -73,6 +73,7 @@ function validateProfile(p: MasterProfile): string[] {
 
 export default function ProfilePage() {
   const [profile, setProfile] = useState<MasterProfile | null>(null);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
   const [status, setStatus] = useState<string>("");
   const [errors, setErrors] = useState<string[]>([]);
@@ -80,7 +81,17 @@ export default function ProfilePage() {
 
   useEffect(() => {
     fetch("/api/profile")
-      .then((r) => r.json())
+      .then(async (res) => {
+        const data = await res.json();
+        if (!res.ok) {
+          throw new Error(
+            typeof data.error === "string"
+              ? data.error
+              : "Failed to load profile"
+          );
+        }
+        return data;
+      })
       .then((data) => {
         setProfile({
           fullName: data.fullName ?? "",
@@ -102,6 +113,10 @@ export default function ProfilePage() {
           genericExperience: Array.isArray(data.genericExperience) ? data.genericExperience : [],
           genericProjects: Array.isArray(data.genericProjects) ? data.genericProjects : [],
         });
+        setLoadError(null);
+      })
+      .catch((err: Error) => {
+        setLoadError(err.message || "Failed to load profile");
       });
   }, []);
 
@@ -131,7 +146,14 @@ export default function ProfilePage() {
     });
     setSaving(false);
     if (res.ok) {
-      setStatus("Saved!");
+      const data = await res.json();
+      if (data.genericResumePersisted === false) {
+        setStatus(
+          "Saved profile, but generic resume selections need a database migration to persist."
+        );
+      } else {
+        setStatus("Saved!");
+      }
       return true;
     }
     const data = await res.json();
@@ -152,6 +174,21 @@ export default function ProfilePage() {
     setStatus("");
     window.open("/api/export/resume/profile?preview=1", "_blank");
   };
+
+  if (loadError) {
+    return (
+      <div className="text-center py-20 space-y-3 max-w-lg mx-auto">
+        <p className="text-red-600 font-medium">Could not load profile</p>
+        <p className="text-sm text-gray-500">{loadError}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-4 py-2 text-sm border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
+          Retry
+        </button>
+      </div>
+    );
+  }
 
   if (!profile) {
     return <div className="text-center py-20 text-gray-400">Loading profile...</div>;
@@ -219,6 +256,11 @@ export default function ProfilePage() {
           <Input label="Website" value={profile.website} onChange={(v) => updateField("website", v)} />
         </div>
       </section>
+
+      <SectionOrderEditor
+        sectionConfig={profile.sectionConfig}
+        onChange={(updated) => updateField("sectionConfig", updated)}
+      />
 
       {/* ── Summary ── */}
       <section className="bg-white rounded-lg border p-6 space-y-4">
@@ -330,12 +372,6 @@ export default function ProfilePage() {
           />
         ))}
       </section>
-
-      {/* ── Section ordering ── */}
-      <SectionOrderEditor
-        sectionConfig={profile.sectionConfig}
-        onChange={(updated) => updateField("sectionConfig", updated)}
-      />
 
       <div className="pb-12">
         <button
@@ -830,14 +866,17 @@ function GenericResumeEditor({
   const [selectedExperienceId, setSelectedExperienceId] = useState("");
   const [selectedProjectId, setSelectedProjectId] = useState("");
 
-  const includedExperienceIds = new Set(profile.genericExperience.map((exp) => exp.id));
-  const includedProjectIds = new Set(profile.genericProjects.map((proj) => proj.id));
+  const genericExperience = profile.genericExperience ?? [];
+  const genericProjects = profile.genericProjects ?? [];
+
+  const includedExperienceIds = new Set(genericExperience.map((exp) => exp.id));
+  const includedProjectIds = new Set(genericProjects.map((proj) => proj.id));
 
   const availableExperiences = profile.experience.filter((exp) => !includedExperienceIds.has(exp.id));
   const availableProjects = profile.projects.filter((proj) => !includedProjectIds.has(proj.id));
 
-  const usingCustomExperience = profile.genericExperience.length > 0;
-  const usingCustomProjects = profile.genericProjects.length > 0;
+  const usingCustomExperience = genericExperience.length > 0;
+  const usingCustomProjects = genericProjects.length > 0;
 
   const includeAllFromProfile = () => {
     updateField(
@@ -859,7 +898,7 @@ function GenericResumeEditor({
     const source = profile.experience.find((exp) => exp.id === selectedExperienceId);
     if (!source) return;
     updateField("genericExperience", [
-      ...profile.genericExperience,
+      ...genericExperience,
       copyExperienceForGenericResume(source),
     ]);
     setSelectedExperienceId("");
@@ -869,7 +908,7 @@ function GenericResumeEditor({
     const source = profile.projects.find((proj) => proj.id === selectedProjectId);
     if (!source) return;
     updateField("genericProjects", [
-      ...profile.genericProjects,
+      ...genericProjects,
       copyProjectForGenericResume(source),
     ]);
     setSelectedProjectId("");
@@ -916,13 +955,13 @@ function GenericResumeEditor({
           )}
           {usingCustomExperience && (
             <p className="text-sm text-gray-400 mt-1">
-              {profile.genericExperience.length} role
-              {profile.genericExperience.length === 1 ? "" : "s"} selected for the generic resume.
+              {genericExperience.length} role
+              {genericExperience.length === 1 ? "" : "s"} selected for the generic resume.
             </p>
           )}
         </div>
 
-        {profile.genericExperience.map((exp, i) => (
+        {genericExperience.map((exp, i) => (
           <div key={exp.id || i} className="border rounded-lg p-4 space-y-2 bg-gray-50">
             <div className="flex justify-between items-start gap-2">
               <p className="font-medium text-sm">
@@ -933,7 +972,7 @@ function GenericResumeEditor({
                 onClick={() =>
                   updateField(
                     "genericExperience",
-                    profile.genericExperience.filter((_, idx) => idx !== i)
+                    genericExperience.filter((_, idx) => idx !== i)
                   )
                 }
                 className="shrink-0 text-red-400 hover:text-red-600 text-sm"
@@ -944,7 +983,7 @@ function GenericResumeEditor({
             <GenericBulletEditor
               bullets={exp.bullets}
               onChange={(bullets) => {
-                const copy = [...profile.genericExperience];
+                const copy = [...genericExperience];
                 copy[i] = { ...copy[i], bullets };
                 updateField("genericExperience", copy);
               }}
@@ -992,13 +1031,13 @@ function GenericResumeEditor({
           )}
           {usingCustomProjects && (
             <p className="text-sm text-gray-400 mt-1">
-              {profile.genericProjects.length} project
-              {profile.genericProjects.length === 1 ? "" : "s"} selected for the generic resume.
+              {genericProjects.length} project
+              {genericProjects.length === 1 ? "" : "s"} selected for the generic resume.
             </p>
           )}
         </div>
 
-        {profile.genericProjects.map((proj, i) => (
+        {genericProjects.map((proj, i) => (
           <div key={proj.id || i} className="border rounded-lg p-4 space-y-2 bg-gray-50">
             <div className="flex justify-between items-start gap-2">
               <p className="font-medium text-sm">
@@ -1010,7 +1049,7 @@ function GenericResumeEditor({
                 onClick={() =>
                   updateField(
                     "genericProjects",
-                    profile.genericProjects.filter((_, idx) => idx !== i)
+                    genericProjects.filter((_, idx) => idx !== i)
                   )
                 }
                 className="shrink-0 text-red-400 hover:text-red-600 text-sm"
@@ -1021,7 +1060,7 @@ function GenericResumeEditor({
             <GenericBulletEditor
               bullets={proj.bullets}
               onChange={(bullets) => {
-                const copy = [...profile.genericProjects];
+                const copy = [...genericProjects];
                 copy[i] = { ...copy[i], bullets };
                 updateField("genericProjects", copy);
               }}

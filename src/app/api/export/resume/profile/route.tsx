@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/db";
 import { masterProfiles } from "@/db/schema";
-import { eq } from "drizzle-orm";
 import { getSessionUser } from "@/lib/session";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { ResumeDocument } from "@/lib/pdf/resume-template";
@@ -9,6 +8,7 @@ import {
   buildResumeDataFromProfile,
   resumePdfFilename,
 } from "@/lib/pdf/build-resume-data";
+import { fetchMasterProfile } from "@/lib/profile-db";
 import React from "react";
 
 export async function GET(request: Request) {
@@ -17,17 +17,12 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const profileRows = await db
-    .select()
-    .from(masterProfiles)
-    .where(eq(masterProfiles.userId, session.userId))
-    .limit(1);
+  const profile = await fetchMasterProfile(session.userId);
 
-  if (profileRows.length === 0) {
+  if (!profile) {
     return NextResponse.json({ error: "Profile not found" }, { status: 404 });
   }
 
-  const profile = profileRows[0];
   const data = buildResumeDataFromProfile(profile);
 
   // @ts-expect-error react-pdf types are loose with jsonb data
@@ -35,7 +30,7 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const preview = searchParams.get("preview") === "1";
-  const filename = resumePdfFilename(profile.fullName);
+  const filename = resumePdfFilename(String(profile.fullName ?? "Resume"));
   const disposition = preview
     ? `inline; filename="${filename}"`
     : `attachment; filename="${filename}"`;
