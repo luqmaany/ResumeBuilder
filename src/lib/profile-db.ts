@@ -1,6 +1,6 @@
 import { db } from "@/db";
 import { masterProfiles } from "@/db/schema";
-import { eq } from "drizzle-orm";
+import { eq, sql } from "drizzle-orm";
 import type { MasterProfile } from "@/lib/types";
 
 const baseProfileSelect = {
@@ -25,6 +25,14 @@ const baseProfileSelect = {
   updatedAt: masterProfiles.updatedAt,
 };
 
+const PROFILE_MIGRATIONS = [
+  `ALTER TABLE "master_profiles" ADD COLUMN IF NOT EXISTS "github" text DEFAULT '' NOT NULL`,
+  `ALTER TABLE "master_profiles" ADD COLUMN IF NOT EXISTS "generic_experience" jsonb DEFAULT '[]' NOT NULL`,
+  `ALTER TABLE "master_profiles" ADD COLUMN IF NOT EXISTS "generic_projects" jsonb DEFAULT '[]' NOT NULL`,
+];
+
+let migratePromise: Promise<void> | null = null;
+
 function isMissingColumnError(error: unknown): boolean {
   if (!error || typeof error !== "object") return false;
   const e = error as { code?: string; message?: string };
@@ -33,8 +41,25 @@ function isMissingColumnError(error: unknown): boolean {
     (typeof e.message === "string" &&
       (e.message.includes("generic_experience") ||
         e.message.includes("generic_projects") ||
+        e.message.includes("github") ||
         e.message.includes("does not exist")))
   );
+}
+
+async function runProfileMigrations() {
+  for (const statement of PROFILE_MIGRATIONS) {
+    await db.execute(sql.raw(statement));
+  }
+}
+
+export async function ensureProfileMigrations() {
+  if (!migratePromise) {
+    migratePromise = runProfileMigrations().catch((error) => {
+      migratePromise = null;
+      throw error;
+    });
+  }
+  await migratePromise;
 }
 
 export function normalizeProfileRow(
@@ -59,8 +84,10 @@ export async function fetchMasterProfile(userId: string) {
   } catch (error) {
     if (!isMissingColumnError(error)) throw error;
 
+    await ensureProfileMigrations();
+
     const rows = await db
-      .select(baseProfileSelect)
+      .select()
       .from(masterProfiles)
       .where(eq(masterProfiles.userId, userId))
       .limit(1);
@@ -71,44 +98,71 @@ export async function fetchMasterProfile(userId: string) {
 
 type ProfileUpdate = Omit<MasterProfile, never>;
 
-export async function saveMasterProfile(userId: string, data: ProfileUpdate) {
-  const baseUpdate = {
-    fullName: data.fullName,
-    email: data.email,
-    phone: data.phone,
-    location: data.location,
-    linkedin: data.linkedin,
-    github: data.github,
-    website: data.website,
-    summary: data.summary,
-    experience: data.experience,
-    education: data.education,
-    skills: data.skills,
-    projects: data.projects,
-    hobbies: data.hobbies,
-    certifications: data.certifications,
-    customSections: data.customSections,
-    sectionConfig: data.sectionConfig,
-    updatedAt: new Date(),
-  };
+async function updateMasterProfile(userId: string, data: ProfileUpdate) {
+  await db
+    .update(masterProfiles)
+    .set({
+      fullName: data.fullName,
+      email: data.email,
+      phone: data.phone,
+      location: data.location,
+      linkedin: data.linkedin,
+      github: data.github,
+      website: data.website,
+      summary: data.summary,
+      experience: data.experience,
+      education: data.education,
+      skills: data.skills,
+      projects: data.projects,
+      hobbies: data.hobbies,
+      certifications: data.certifications,
+      customSections: data.customSections,
+      sectionConfig: data.sectionConfig,
+      genericExperience: data.genericExperience,
+      genericProjects: data.genericProjects,
+      updatedAt: new Date(),
+    })
+    .where(eq(masterProfiles.userId, userId));
+}
 
+export async function saveMasterProfile(userId: string, data: ProfileUpdate) {
   try {
-    await db
-      .update(masterProfiles)
-      .set({
-        ...baseUpdate,
-        genericExperience: data.genericExperience,
-        genericProjects: data.genericProjects,
-      })
-      .where(eq(masterProfiles.userId, userId));
+    await updateMasterProfile(userId, data);
     return { genericResumePersisted: true };
   } catch (error) {
     if (!isMissingColumnError(error)) throw error;
 
-    await db
-      .update(masterProfiles)
-      .set(baseUpdate)
-      .where(eq(masterProfiles.userId, userId));
-    return { genericResumePersisted: false };
+    try {
+      await ensureProfileMigrations();
+      await updateMasterProfile(userId, data);
+      return { genericResumePersisted: true };
+    } catch (migrationError) {
+      console.error("Profile migration failed:", migrationError);
+
+      await db
+        .update(masterProfiles)
+        .set({
+          fullName: data.fullName,
+          email: data.email,
+          phone: data.phone,
+          location: data.location,
+          linkedin: data.linkedin,
+          github: data.github,
+          website: data.website,
+          summary: data.summary,
+          experience: data.experience,
+          education: data.education,
+          skills: data.skills,
+          projects: data.projects,
+          hobbies: data.hobbies,
+          certifications: data.certifications,
+          customSections: data.customSections,
+          sectionConfig: data.sectionConfig,
+          updatedAt: new Date(),
+        })
+        .where(eq(masterProfiles.userId, userId));
+
+      return { genericResumePersisted: false };
+    }
   }
 }

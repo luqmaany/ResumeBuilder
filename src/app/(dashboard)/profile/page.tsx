@@ -149,7 +149,7 @@ export default function ProfilePage() {
       const data = await res.json();
       if (data.genericResumePersisted === false) {
         setStatus(
-          "Saved profile, but generic resume selections need a database migration to persist."
+          "Saved profile, but generic resume selections could not be saved. Check database permissions."
         );
       } else {
         setStatus("Saved!");
