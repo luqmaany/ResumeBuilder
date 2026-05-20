@@ -2,6 +2,10 @@ import {
   isSectionVisible,
   limitTailoredSkills,
   normalizeSectionConfig,
+  sanitizeExperienceForResume,
+  sanitizeProjectsForResume,
+  type ExperienceItem,
+  type GenericResumeProject,
   type SectionConfigItem,
 } from "@/lib/types";
 
@@ -37,6 +41,8 @@ type ProfileFields = {
   projects?: unknown;
   hobbies?: unknown;
   sectionConfig?: unknown;
+  genericExperience?: unknown;
+  genericProjects?: unknown;
 };
 
 export function buildResumeDataFromProfile(profile: ProfileFields): ResumeData {
@@ -44,6 +50,18 @@ export function buildResumeDataFromProfile(profile: ProfileFields): ResumeData {
     profile.sectionConfig as Parameters<typeof normalizeSectionConfig>[0]
   );
   const projectsVisible = isSectionVisible(sectionConfig, "projects");
+
+  const genericExperience = (profile.genericExperience as ExperienceItem[]) ?? [];
+  const genericProjects = (profile.genericProjects as GenericResumeProject[]) ?? [];
+  const experience =
+    genericExperience.length > 0
+      ? sanitizeExperienceForResume(genericExperience)
+      : sanitizeExperienceForResume((profile.experience as ExperienceItem[]) ?? []);
+  const projects = projectsVisible
+    ? genericProjects.length > 0
+      ? sanitizeProjectsForResume(genericProjects)
+      : sanitizeProjectsForResume((profile.projects as GenericResumeProject[]) ?? [])
+    : [];
 
   return {
     fullName: profile.fullName ?? "",
@@ -54,11 +72,11 @@ export function buildResumeDataFromProfile(profile: ProfileFields): ResumeData {
     github: profile.github ?? "",
     website: profile.website ?? "",
     summary: profile.summary ?? "",
-    experience: (profile.experience as unknown[]) ?? [],
+    experience,
     education: (profile.education as unknown[]) ?? [],
     skills: ((profile.skills as string[]) ?? []).filter(Boolean),
     hobbies: ((profile.hobbies as string[]) ?? []).filter(Boolean),
-    projects: projectsVisible ? ((profile.projects as unknown[]) ?? []) : [],
+    projects,
     sectionConfig,
   };
 }

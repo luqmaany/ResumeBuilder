@@ -41,6 +41,8 @@ export async function GET() {
       hobbies: [],
       certifications: [],
       customSections: [],
+      genericExperience: [],
+      genericProjects: [],
     });
   }
 
@@ -88,6 +90,8 @@ export async function PUT(request: Request) {
       certifications: data.certifications,
       customSections: data.customSections,
       sectionConfig: data.sectionConfig,
+      genericExperience: data.genericExperience,
+      genericProjects: data.genericProjects,
       updatedAt: new Date(),
     })
     .where(eq(masterProfiles.userId, session.userId));

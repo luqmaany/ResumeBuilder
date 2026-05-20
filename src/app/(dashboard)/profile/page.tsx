@@ -9,7 +9,12 @@ import type {
   ProjectItem,
   SectionConfigItem,
 } from "@/lib/types";
-import { DEFAULT_SECTION_CONFIG, normalizeSectionConfig } from "@/lib/types";
+import {
+  DEFAULT_SECTION_CONFIG,
+  normalizeSectionConfig,
+  copyExperienceForGenericResume,
+  copyProjectForGenericResume,
+} from "@/lib/types";
 import {
   DndContext,
   closestCenter,
@@ -94,6 +99,8 @@ export default function ProfilePage() {
           certifications: Array.isArray(data.certifications) ? data.certifications : [],
           customSections: Array.isArray(data.customSections) ? data.customSections : [],
           sectionConfig: normalizeSectionConfig(data.sectionConfig),
+          genericExperience: Array.isArray(data.genericExperience) ? data.genericExperience : [],
+          genericProjects: Array.isArray(data.genericProjects) ? data.genericProjects : [],
         });
       });
   }, []);
@@ -196,6 +203,8 @@ export default function ProfilePage() {
           </ul>
         </div>
       )}
+
+      <GenericResumeEditor profile={profile} updateField={updateField} />
 
       {/* ── Contact info ── */}
       <section className="bg-white rounded-lg border p-6 space-y-4">
@@ -807,6 +816,293 @@ function ProjectCard({
         </button>
       </div>
       <BulletList bullets={item.bullets} onChange={(b) => set("bullets", b)} />
+    </div>
+  );
+}
+
+function GenericResumeEditor({
+  profile,
+  updateField,
+}: {
+  profile: MasterProfile;
+  updateField: (field: keyof MasterProfile, value: unknown) => void;
+}) {
+  const [selectedExperienceId, setSelectedExperienceId] = useState("");
+  const [selectedProjectId, setSelectedProjectId] = useState("");
+
+  const includedExperienceIds = new Set(profile.genericExperience.map((exp) => exp.id));
+  const includedProjectIds = new Set(profile.genericProjects.map((proj) => proj.id));
+
+  const availableExperiences = profile.experience.filter((exp) => !includedExperienceIds.has(exp.id));
+  const availableProjects = profile.projects.filter((proj) => !includedProjectIds.has(proj.id));
+
+  const usingCustomExperience = profile.genericExperience.length > 0;
+  const usingCustomProjects = profile.genericProjects.length > 0;
+
+  const includeAllFromProfile = () => {
+    updateField(
+      "genericExperience",
+      profile.experience.map(copyExperienceForGenericResume)
+    );
+    updateField(
+      "genericProjects",
+      profile.projects.map(copyProjectForGenericResume)
+    );
+  };
+
+  const clearCustomization = () => {
+    updateField("genericExperience", []);
+    updateField("genericProjects", []);
+  };
+
+  const addExperience = () => {
+    const source = profile.experience.find((exp) => exp.id === selectedExperienceId);
+    if (!source) return;
+    updateField("genericExperience", [
+      ...profile.genericExperience,
+      copyExperienceForGenericResume(source),
+    ]);
+    setSelectedExperienceId("");
+  };
+
+  const addProject = () => {
+    const source = profile.projects.find((proj) => proj.id === selectedProjectId);
+    if (!source) return;
+    updateField("genericProjects", [
+      ...profile.genericProjects,
+      copyProjectForGenericResume(source),
+    ]);
+    setSelectedProjectId("");
+  };
+
+  return (
+    <section className="bg-white rounded-lg border p-6 space-y-6">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold">Generic Resume Content</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Choose which roles and projects appear on your generic resume PDF and edit their bullet
+            points. Leave this empty to include everything from your profile.
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2">
+          <button
+            type="button"
+            onClick={includeAllFromProfile}
+            className="px-3 py-1.5 text-sm bg-gray-100 text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-200 transition-colors"
+          >
+            Include all from profile
+          </button>
+          {usingCustomExperience || usingCustomProjects ? (
+            <button
+              type="button"
+              onClick={clearCustomization}
+              className="px-3 py-1.5 text-sm text-gray-600 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            >
+              Use profile defaults
+            </button>
+          ) : null}
+        </div>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-800">Experience on resume</h3>
+          {!usingCustomExperience && profile.experience.length > 0 && (
+            <p className="text-sm text-gray-400 mt-1">
+              Currently exporting all {profile.experience.length} role
+              {profile.experience.length === 1 ? "" : "s"} from your profile.
+            </p>
+          )}
+          {usingCustomExperience && (
+            <p className="text-sm text-gray-400 mt-1">
+              {profile.genericExperience.length} role
+              {profile.genericExperience.length === 1 ? "" : "s"} selected for the generic resume.
+            </p>
+          )}
+        </div>
+
+        {profile.genericExperience.map((exp, i) => (
+          <div key={exp.id || i} className="border rounded-lg p-4 space-y-2 bg-gray-50">
+            <div className="flex justify-between items-start gap-2">
+              <p className="font-medium text-sm">
+                {exp.title} &mdash; {exp.company}
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  updateField(
+                    "genericExperience",
+                    profile.genericExperience.filter((_, idx) => idx !== i)
+                  )
+                }
+                className="shrink-0 text-red-400 hover:text-red-600 text-sm"
+              >
+                Remove from resume
+              </button>
+            </div>
+            <GenericBulletEditor
+              bullets={exp.bullets}
+              onChange={(bullets) => {
+                const copy = [...profile.genericExperience];
+                copy[i] = { ...copy[i], bullets };
+                updateField("genericExperience", copy);
+              }}
+            />
+          </div>
+        ))}
+
+        {availableExperiences.length > 0 && (
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex-1 min-w-[200px]">
+              <span className="block text-xs text-gray-500 mb-1">Add role from profile</span>
+              <select
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                value={selectedExperienceId}
+                onChange={(e) => setSelectedExperienceId(e.target.value)}
+              >
+                <option value="">Select a role...</option>
+                {availableExperiences.map((exp) => (
+                  <option key={exp.id} value={exp.id}>
+                    {exp.title} @ {exp.company}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={addExperience}
+              disabled={!selectedExperienceId}
+              className="px-3 py-2 text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
+            >
+              + Add role
+            </button>
+          </div>
+        )}
+      </div>
+
+      <div className="space-y-4 border-t pt-6">
+        <div>
+          <h3 className="text-sm font-semibold text-gray-800">Projects on resume</h3>
+          {!usingCustomProjects && profile.projects.length > 0 && (
+            <p className="text-sm text-gray-400 mt-1">
+              Currently exporting all {profile.projects.length} project
+              {profile.projects.length === 1 ? "" : "s"} from your profile.
+            </p>
+          )}
+          {usingCustomProjects && (
+            <p className="text-sm text-gray-400 mt-1">
+              {profile.genericProjects.length} project
+              {profile.genericProjects.length === 1 ? "" : "s"} selected for the generic resume.
+            </p>
+          )}
+        </div>
+
+        {profile.genericProjects.map((proj, i) => (
+          <div key={proj.id || i} className="border rounded-lg p-4 space-y-2 bg-gray-50">
+            <div className="flex justify-between items-start gap-2">
+              <p className="font-medium text-sm">
+                {proj.name}
+                {proj.technologies ? ` — ${proj.technologies}` : ""}
+              </p>
+              <button
+                type="button"
+                onClick={() =>
+                  updateField(
+                    "genericProjects",
+                    profile.genericProjects.filter((_, idx) => idx !== i)
+                  )
+                }
+                className="shrink-0 text-red-400 hover:text-red-600 text-sm"
+              >
+                Remove from resume
+              </button>
+            </div>
+            <GenericBulletEditor
+              bullets={proj.bullets}
+              onChange={(bullets) => {
+                const copy = [...profile.genericProjects];
+                copy[i] = { ...copy[i], bullets };
+                updateField("genericProjects", copy);
+              }}
+            />
+          </div>
+        ))}
+
+        {availableProjects.length > 0 && (
+          <div className="flex flex-wrap items-end gap-2">
+            <label className="flex-1 min-w-[200px]">
+              <span className="block text-xs text-gray-500 mb-1">Add project from profile</span>
+              <select
+                className="w-full border rounded-lg px-3 py-2 text-sm"
+                value={selectedProjectId}
+                onChange={(e) => setSelectedProjectId(e.target.value)}
+              >
+                <option value="">Select a project...</option>
+                {availableProjects.map((proj) => (
+                  <option key={proj.id} value={proj.id}>
+                    {proj.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={addProject}
+              disabled={!selectedProjectId}
+              className="px-3 py-2 text-sm text-blue-600 hover:text-blue-800 disabled:opacity-50"
+            >
+              + Add project
+            </button>
+          </div>
+        )}
+      </div>
+    </section>
+  );
+}
+
+function GenericBulletEditor({
+  bullets,
+  onChange,
+}: {
+  bullets: string[];
+  onChange: (bullets: string[]) => void;
+}) {
+  const items = bullets.length > 0 ? bullets : [""];
+
+  return (
+    <div className="space-y-2">
+      {items.map((bullet, j) => (
+        <div key={j} className="flex gap-2">
+          <span className="text-gray-400 mt-2">-</span>
+          <textarea
+            className="flex-1 border rounded-lg px-3 py-2 text-sm min-h-[40px] focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+            value={bullet}
+            onChange={(e) => {
+              const copy = [...items];
+              copy[j] = e.target.value;
+              onChange(copy);
+            }}
+            placeholder="Bullet point..."
+          />
+          {items.length > 1 && (
+            <button
+              type="button"
+              onClick={() => onChange(items.filter((_, idx) => idx !== j))}
+              className="text-red-400 hover:text-red-600 text-sm mt-2"
+            >
+              Remove
+            </button>
+          )}
+        </div>
+      ))}
+      <button
+        type="button"
+        onClick={() => onChange([...items, ""])}
+        className="text-sm text-blue-600 hover:text-blue-800"
+      >
+        + Add bullet
+      </button>
     </div>
   );
 }

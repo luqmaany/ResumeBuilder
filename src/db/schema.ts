@@ -40,6 +40,8 @@ export const masterProfiles = pgTable("master_profiles", {
   certifications: jsonb("certifications").notNull().default("[]"),
   customSections: jsonb("custom_sections").notNull().default("[]"),
   sectionConfig: jsonb("section_config").notNull().default("[]"),
+  genericExperience: jsonb("generic_experience").notNull().default("[]"),
+  genericProjects: jsonb("generic_projects").notNull().default("[]"),
   updatedAt: timestamp("updated_at").defaultNow().notNull(),
 });
 

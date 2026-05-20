@@ -70,6 +70,15 @@ export const sectionConfigItemSchema = z.object({
   customSectionId: z.string().optional(),
 });
 
+export const genericResumeProjectSchema = projectItemSchema.pick({
+  id: true,
+  name: true,
+  technologies: true,
+  startDate: true,
+  endDate: true,
+  bullets: true,
+});
+
 export const masterProfileSchema = z.object({
   fullName: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email"),
@@ -87,11 +96,14 @@ export const masterProfileSchema = z.object({
   certifications: z.array(certificationItemSchema).default([]),
   customSections: z.array(customSectionSchema).default([]),
   sectionConfig: z.array(sectionConfigItemSchema).default([]),
+  genericExperience: z.array(experienceItemSchema).default([]),
+  genericProjects: z.array(genericResumeProjectSchema).default([]),
 });
 
 export type ExperienceItem = z.infer<typeof experienceItemSchema>;
 export type EducationItem = z.infer<typeof educationItemSchema>;
 export type ProjectItem = z.infer<typeof projectItemSchema>;
+export type GenericResumeProject = z.infer<typeof genericResumeProjectSchema>;
 export type CertificationItem = z.infer<typeof certificationItemSchema>;
 export type CustomSection = z.infer<typeof customSectionSchema>;
 export type SectionConfigItem = z.infer<typeof sectionConfigItemSchema>;
@@ -151,4 +163,37 @@ export const MAX_TAILORED_SKILLS = 10;
 
 export function limitTailoredSkills(skills: string[]): string[] {
   return skills.filter(Boolean).slice(0, MAX_TAILORED_SKILLS);
+}
+
+export function copyExperienceForGenericResume(exp: ExperienceItem): ExperienceItem {
+  return { ...exp, bullets: [...exp.bullets] };
+}
+
+export function copyProjectForGenericResume(proj: ProjectItem): GenericResumeProject {
+  return {
+    id: proj.id,
+    name: proj.name,
+    technologies: proj.technologies ?? "",
+    startDate: proj.startDate,
+    endDate: proj.endDate,
+    bullets: [...proj.bullets],
+  };
+}
+
+function sanitizeResumeBullets(bullets: string[]): string[] {
+  return bullets.map((b) => b.trim()).filter(Boolean);
+}
+
+export function sanitizeExperienceForResume(items: ExperienceItem[]): ExperienceItem[] {
+  return items.map((item) => ({
+    ...item,
+    bullets: sanitizeResumeBullets(item.bullets),
+  }));
+}
+
+export function sanitizeProjectsForResume(items: GenericResumeProject[]): GenericResumeProject[] {
+  return items.map((item) => ({
+    ...item,
+    bullets: sanitizeResumeBullets(item.bullets),
+  }));
 }
