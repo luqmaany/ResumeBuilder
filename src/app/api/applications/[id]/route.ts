@@ -3,7 +3,7 @@ import { db } from "@/db";
 import { applications, masterProfiles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getSessionUser } from "@/lib/session";
-import { DEFAULT_SECTION_CONFIG } from "@/lib/types";
+import { DEFAULT_SECTION_CONFIG, limitTailoredSkills } from "@/lib/types";
 
 export async function GET(
   _request: Request,
@@ -44,7 +44,9 @@ export async function PUT(
       status: body.status,
       tailoredSummary: body.tailoredSummary,
       tailoredExperience: body.tailoredExperience,
-      tailoredSkills: body.tailoredSkills,
+      tailoredSkills: limitTailoredSkills(
+        Array.isArray(body.tailoredSkills) ? body.tailoredSkills : []
+      ),
       tailoredProjects: body.tailoredProjects,
       tailoredHobbies: body.tailoredHobbies,
       coverLetterBody: body.coverLetterBody,

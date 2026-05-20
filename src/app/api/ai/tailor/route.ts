@@ -3,6 +3,7 @@ import { db } from "@/db";
 import { applications, masterProfiles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
 import { getSessionUser } from "@/lib/session";
+import { limitTailoredSkills, MAX_TAILORED_SKILLS } from "@/lib/types";
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -50,7 +51,7 @@ Then produce:
 
 1. A tailored professional summary (2-3 sentences) that highlights the candidate's most relevant strengths for this specific role. Naturally mention 1-2 languages or technologies from the required tech stack that the candidate actually has.
 2. A curated selection of the candidate's most relevant work experiences for this role. Strongly prefer experiences where the candidate used languages or technologies from the required tech stack. Omit roles that add little value for this specific position. For each selected experience, output exactly 3 bullet points (no fewer, no more). Rewrite those bullets to explicitly name the relevant languages and technologies used (e.g. "Built REST APIs in Python/FastAPI" rather than just "Built REST APIs") where the original bullets support it; combine or distill multiple source bullets into 3 strongest lines — never introduce new duties or achievements not grounded in the original role. Keep the same employers, titles, and dates — NEVER invent or change factual information. Include at least 1 experience and no more than the top 4-5 most relevant roles.
-3. A curated list of skills most relevant to the job description. Place languages and technologies from the required tech stack that the candidate actually has at the top, ordered by how prominently they appear in the job description.
+3. Exactly ${MAX_TAILORED_SKILLS} skills (no more) most relevant to the job description — the single best subset for this role. Place languages and technologies from the required tech stack that the candidate actually has at the top, ordered by how prominently they appear in the job description. Omit lower-priority skills even if the candidate has many.
 4. A curated selection of the candidate's most relevant projects for this role. Strongly prefer projects that used languages or technologies from the required tech stack. Omit projects that are not relevant. For each selected project, rewrite bullets to explicitly call out the relevant languages/technologies used. Keep the same project names, technologies, and dates — NEVER invent projects. Include at most the top 3-4 most relevant projects.
 5. A tailored list of hobbies and interests most relevant to the role and company culture. Reorder by relevance and keep only genuine hobbies from the candidate's list — NEVER invent hobbies.
 6. A professional cover letter body (3-4 paragraphs, no addresses/headers — the template handles formatting). The letter should reference the specific company, role title, and 2-3 languages or technologies from the required tech stack that the candidate has.
@@ -67,6 +68,7 @@ CRITICAL RULES:
 - Only include experiences and projects from the candidate's actual profile — select the most relevant subset, do not include all of them if some are not relevant.
 - If the candidate has no projects, return an empty array for tailoredProjects.
 - If the candidate has no hobbies, return an empty array for tailoredHobbies.
+- tailoredSkills must contain at most ${MAX_TAILORED_SKILLS} items, ordered from most to least relevant for this job.
 
 Respond ONLY with valid JSON matching this schema:
 {
@@ -113,6 +115,9 @@ ${app.jobDescription}`;
     }
 
     const result = JSON.parse(content);
+    const tailoredSkills = limitTailoredSkills(
+      Array.isArray(result.tailoredSkills) ? result.tailoredSkills : []
+    );
 
     const profileConfig = profile.sectionConfig as unknown[] | null;
     const sectionConfig =
@@ -125,7 +130,7 @@ ${app.jobDescription}`;
       .set({
         tailoredSummary: result.tailoredSummary ?? "",
         tailoredExperience: result.tailoredExperience ?? [],
-        tailoredSkills: result.tailoredSkills ?? [],
+        tailoredSkills,
         tailoredProjects: result.tailoredProjects ?? profile.projects ?? [],
         tailoredHobbies: result.tailoredHobbies ?? profile.hobbies ?? [],
         coverLetterBody: result.coverLetterBody ?? "",
@@ -149,6 +154,7 @@ ${app.jobDescription}`;
 
     return NextResponse.json({
       ...result,
+      tailoredSkills,
       ...(sectionConfig ? { sectionConfig } : {}),
     });
   } catch (err: unknown) {

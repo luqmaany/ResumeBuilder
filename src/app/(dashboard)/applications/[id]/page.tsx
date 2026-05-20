@@ -5,6 +5,8 @@ import { useParams, useRouter } from "next/navigation";
 import type { ExperienceItem, SectionConfigItem } from "@/lib/types";
 import {
   isSectionVisible,
+  limitTailoredSkills,
+  MAX_TAILORED_SKILLS,
   normalizeSectionConfig,
   setSectionVisible,
 } from "@/lib/types";
@@ -57,7 +59,9 @@ export default function ApplicationDetailPage() {
         setApp({
           ...data,
           tailoredExperience: Array.isArray(data.tailoredExperience) ? data.tailoredExperience : [],
-          tailoredSkills: Array.isArray(data.tailoredSkills) ? data.tailoredSkills : [],
+          tailoredSkills: limitTailoredSkills(
+            Array.isArray(data.tailoredSkills) ? data.tailoredSkills : []
+          ),
           tailoredProjects: Array.isArray(data.tailoredProjects) ? data.tailoredProjects : [],
           tailoredHobbies: Array.isArray(data.tailoredHobbies) ? data.tailoredHobbies : [],
           sectionConfig: normalizeSectionConfig(data.sectionConfig),
@@ -124,7 +128,9 @@ export default function ApplicationDetailPage() {
               ...prev,
               tailoredSummary: data.tailoredSummary ?? prev.tailoredSummary,
               tailoredExperience: data.tailoredExperience ?? prev.tailoredExperience,
-              tailoredSkills: data.tailoredSkills ?? prev.tailoredSkills,
+              tailoredSkills: limitTailoredSkills(
+                Array.isArray(data.tailoredSkills) ? data.tailoredSkills : prev.tailoredSkills
+              ),
               tailoredProjects: data.tailoredProjects ?? prev.tailoredProjects,
               tailoredHobbies: data.tailoredHobbies ?? prev.tailoredHobbies,
               coverLetterBody: data.coverLetterBody ?? prev.coverLetterBody,
@@ -419,14 +425,22 @@ export default function ApplicationDetailPage() {
 
       {/* Tailored Skills */}
       <section className="bg-white rounded-lg border p-6 space-y-3">
-        <h2 className="text-lg font-semibold">Tailored Skills</h2>
+        <div>
+          <h2 className="text-lg font-semibold">Tailored Skills</h2>
+          <p className="text-xs text-gray-500 mt-1">
+            Up to {MAX_TAILORED_SKILLS} most relevant skills for this role ({app.tailoredSkills.length}/
+            {MAX_TAILORED_SKILLS}).
+          </p>
+        </div>
         <textarea
           className="w-full border rounded-lg px-3 py-2 text-sm min-h-[60px] focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           value={app.tailoredSkills.join(", ")}
           onChange={(e) =>
             setApp({
               ...app,
-              tailoredSkills: e.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+              tailoredSkills: limitTailoredSkills(
+                e.target.value.split(",").map((s) => s.trim()).filter(Boolean)
+              ),
             })
           }
           placeholder="Comma-separated skills..."

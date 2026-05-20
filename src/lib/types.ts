@@ -146,3 +146,9 @@ export function setSectionVisible(
 ): SectionConfigItem[] {
   return config.map((s) => (s.type === type ? { ...s, visible } : s));
 }
+
+export const MAX_TAILORED_SKILLS = 10;
+
+export function limitTailoredSkills(skills: string[]): string[] {
+  return skills.filter(Boolean).slice(0, MAX_TAILORED_SKILLS);
+}

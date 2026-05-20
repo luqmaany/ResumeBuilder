@@ -5,7 +5,7 @@ import { eq, and } from "drizzle-orm";
 import { getSessionUser } from "@/lib/session";
 import { renderToBuffer } from "@react-pdf/renderer";
 import { ResumeDocument } from "@/lib/pdf/resume-template";
-import { isSectionVisible, normalizeSectionConfig } from "@/lib/types";
+import { isSectionVisible, limitTailoredSkills, normalizeSectionConfig } from "@/lib/types";
 import React from "react";
 
 async function buildResumeBuffer(request: Request) {
@@ -52,7 +52,7 @@ async function buildResumeBuffer(request: Request) {
     summary: app.tailoredSummary || profile?.summary || "",
     experience: (app.tailoredExperience as unknown[]) ?? [],
     education: ((snapshot.education ?? profile?.education ?? []) as unknown[]),
-    skills: (app.tailoredSkills as string[]) ?? [],
+    skills: limitTailoredSkills((app.tailoredSkills as string[]) ?? []),
     hobbies: ((app.tailoredHobbies as string[])?.length
       ? app.tailoredHobbies
       : (snapshot.hobbies ?? profile?.hobbies ?? [])) as string[],
