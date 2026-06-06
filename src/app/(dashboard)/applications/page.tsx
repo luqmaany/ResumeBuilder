@@ -31,6 +31,7 @@ export default function ApplicationsPage() {
   const [jobUrl, setJobUrl] = useState("");
   const [importPhase, setImportPhase] = useState<ImportPhase>("idle");
   const [importError, setImportError] = useState("");
+  const [loadError, setLoadError] = useState("");
   const [form, setForm] = useState({
     companyName: "",
     roleTitle: "",
@@ -42,9 +43,23 @@ export default function ApplicationsPage() {
 
   useEffect(() => {
     fetch("/api/applications")
-      .then((r) => r.json())
+      .then(async (r) => {
+        const data = await r.json().catch(() => null);
+        if (!r.ok) {
+          throw new Error(
+            data && typeof data.error === "string"
+              ? data.error
+              : "Failed to load applications"
+          );
+        }
+        return Array.isArray(data) ? data : [];
+      })
       .then((data) => {
         setApps(data);
+        setLoading(false);
+      })
+      .catch((err: unknown) => {
+        setLoadError(err instanceof Error ? err.message : "Failed to load applications");
         setLoading(false);
       });
   }, []);
@@ -104,6 +119,11 @@ export default function ApplicationsPage() {
 
   return (
     <div className="space-y-6">
+      {loadError && (
+        <p className="text-sm text-red-600 bg-red-50 border border-red-100 rounded-lg px-3 py-2">
+          {loadError}
+        </p>
+      )}
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-bold">Applications</h1>
         <button
