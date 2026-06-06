@@ -53,6 +53,7 @@ export const applications = pgTable("applications", {
   companyName: text("company_name").notNull(),
   roleTitle: text("role_title").notNull(),
   jobDescription: text("job_description").notNull(),
+  jobUrl: text("job_url").notNull().default(""),
   status: text("status").notNull().default("draft"),
   tailoredSummary: text("tailored_summary").notNull().default(""),
   tailoredExperience: jsonb("tailored_experience").notNull().default("[]"),

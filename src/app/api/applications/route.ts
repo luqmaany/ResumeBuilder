@@ -49,6 +49,7 @@ export async function POST(request: Request) {
     companyName: parsed.data.companyName,
     roleTitle: parsed.data.roleTitle,
     jobDescription: parsed.data.jobDescription,
+    jobUrl: parsed.data.jobUrl,
     status: parsed.data.status,
     sectionConfig,
     createdAt: now,

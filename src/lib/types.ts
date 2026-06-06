@@ -113,6 +113,7 @@ export const applicationSchema = z.object({
   companyName: z.string().min(1, "Company name is required"),
   roleTitle: z.string().min(1, "Role title is required"),
   jobDescription: z.string().min(1, "Job description is required"),
+  jobUrl: z.string().default(""),
   status: z
     .enum(["draft", "generated", "applied", "interview", "offer", "rejected"])
     .default("draft"),

@@ -41,6 +41,7 @@ export async function PUT(
       companyName: body.companyName,
       roleTitle: body.roleTitle,
       jobDescription: body.jobDescription,
+      jobUrl: body.jobUrl ?? "",
       status: body.status,
       tailoredSummary: body.tailoredSummary,
       tailoredExperience: body.tailoredExperience,
