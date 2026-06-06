@@ -12,8 +12,8 @@ export default async function Home() {
           Resume Builder
         </h1>
         <p className="text-lg text-gray-600">
-          Paste a job link from Seek, Indeed, or any job board and get a tailored resume
-          and cover letter in seconds. Download both as PDFs, ready to apply.
+          Paste a job description and get a tailored resume and cover letter
+          in seconds. Download both as PDFs, ready to apply.
         </p>
         <div className="flex gap-4 justify-center">
           {userId ? (

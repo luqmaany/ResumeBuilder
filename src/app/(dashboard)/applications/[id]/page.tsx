@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import type { ExperienceItem, SectionConfigItem } from "@/lib/types";
 import {
   isSectionVisible,
@@ -20,7 +20,6 @@ interface ApplicationData {
   companyName: string;
   roleTitle: string;
   jobDescription: string;
-  jobUrl: string;
   status: string;
   tailoredSummary: string;
   tailoredExperience: ExperienceItem[];
@@ -37,7 +36,6 @@ export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
   const id = typeof params.id === "string" ? params.id : "";
   const router = useRouter();
-  const searchParams = useSearchParams();
   const [app, setApp] = useState<ApplicationData | null>(null);
   const [generating, setGenerating] = useState(false);
   const [status, setStatus] = useState("");
@@ -52,13 +50,6 @@ export default function ApplicationDetailPage() {
   }, [app]);
 
   useEffect(() => {
-    const importError = searchParams.get("importError");
-    if (importError) {
-      setStatus(`Imported job, but generation failed: ${importError}. Click AI Generate to try again.`);
-    }
-  }, [searchParams]);
-
-  useEffect(() => {
     if (!id) return;
     skipAutoSaveRef.current = true;
     setApp(null);
@@ -67,7 +58,6 @@ export default function ApplicationDetailPage() {
       .then((data) => {
         setApp({
           ...data,
-          jobUrl: data.jobUrl ?? "",
           tailoredExperience: Array.isArray(data.tailoredExperience) ? data.tailoredExperience : [],
           tailoredSkills: limitTailoredSkills(
             Array.isArray(data.tailoredSkills) ? data.tailoredSkills : []
@@ -363,19 +353,7 @@ export default function ApplicationDetailPage() {
 
       {/* Job Description */}
       <section className="bg-white rounded-lg border p-6 space-y-3">
-        <div className="flex items-center justify-between gap-3">
-          <h2 className="text-lg font-semibold">Job Description</h2>
-          {app.jobUrl && (
-            <a
-              href={app.jobUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-blue-600 hover:underline shrink-0"
-            >
-              View original posting
-            </a>
-          )}
-        </div>
+        <h2 className="text-lg font-semibold">Job Description</h2>
         <textarea
           className="w-full border rounded-lg px-3 py-2 text-sm min-h-[150px] focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
           value={app.jobDescription}
