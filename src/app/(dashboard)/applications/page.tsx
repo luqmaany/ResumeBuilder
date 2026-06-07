@@ -61,7 +61,7 @@ export default function ApplicationsPage() {
     });
     const { id } = await res.json();
     setCreating(false);
-    router.push(`/applications/${id}`);
+    router.push(`/applications/${id}?generate=1`);
   };
 
   if (loading) {

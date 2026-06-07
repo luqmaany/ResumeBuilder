@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useParams, useRouter } from "next/navigation";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { ExperienceItem, SectionConfigItem } from "@/lib/types";
 import {
   isSectionVisible,
@@ -36,6 +36,7 @@ export default function ApplicationDetailPage() {
   const params = useParams<{ id: string }>();
   const id = typeof params.id === "string" ? params.id : "";
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [app, setApp] = useState<ApplicationData | null>(null);
   const [generating, setGenerating] = useState(false);
   const [status, setStatus] = useState("");
@@ -44,6 +45,7 @@ export default function ApplicationDetailPage() {
   const appRef = useRef<ApplicationData | null>(null);
   const skipAutoSaveRef = useRef(true);
   const saveGenerationRef = useRef(0);
+  const autoGenerateRef = useRef(false);
 
   useEffect(() => {
     appRef.current = app;
@@ -52,6 +54,7 @@ export default function ApplicationDetailPage() {
   useEffect(() => {
     if (!id) return;
     skipAutoSaveRef.current = true;
+    autoGenerateRef.current = false;
     setApp(null);
     fetch(`/api/applications/${id}`)
       .then((r) => r.json())
@@ -146,6 +149,17 @@ export default function ApplicationDetailPage() {
     }
     setGenerating(false);
   };
+
+  useEffect(() => {
+    if (autoGenerateRef.current) return;
+    if (!app || !id || generating) return;
+    if (searchParams.get("generate") !== "1") return;
+
+    autoGenerateRef.current = true;
+    router.replace(`/applications/${id}`);
+    generate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [app, id, searchParams]);
 
   const syncProfile = async () => {
     setStatus("");
