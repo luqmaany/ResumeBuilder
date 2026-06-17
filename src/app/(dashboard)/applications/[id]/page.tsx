@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
 import type { ExperienceItem, SectionConfigItem } from "@/lib/types";
 import {
@@ -14,6 +14,30 @@ import {
 const AUTOSAVE_MS = 850;
 
 type SaveState = "idle" | "saving" | "saved" | "error";
+
+function AutoGrowTextarea(
+  props: React.TextareaHTMLAttributes<HTMLTextAreaElement>
+) {
+  const ref = useRef<HTMLTextAreaElement>(null);
+
+  const resize = () => {
+    const el = ref.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  };
+
+  useEffect(resize, [props.value]);
+
+  return (
+    <textarea
+      {...props}
+      ref={ref}
+      onInput={resize}
+      style={{ overflow: "hidden", resize: "none", ...props.style }}
+    />
+  );
+}
 
 interface ApplicationData {
   id: string;
@@ -419,7 +443,7 @@ export default function ApplicationDetailPage() {
             {exp.bullets.map((b, j) => (
               <div key={j} className="flex gap-2">
                 <span className="text-gray-400 mt-2">-</span>
-                <textarea
+                <AutoGrowTextarea
                   className="flex-1 border rounded-lg px-3 py-2 text-sm min-h-[40px] focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   value={b}
                   onChange={(e) => {
@@ -515,7 +539,7 @@ export default function ApplicationDetailPage() {
             {proj.bullets.map((b, j) => (
               <div key={j} className="flex gap-2">
                 <span className="text-gray-400 mt-2">-</span>
-                <textarea
+                <AutoGrowTextarea
                   className="flex-1 border rounded-lg px-3 py-2 text-sm min-h-[40px] focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
                   value={b}
                   onChange={(e) => {
