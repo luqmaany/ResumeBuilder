@@ -103,11 +103,12 @@ Role: ${app.roleTitle}
 ${app.jobDescription}`;
 
   const completion = await openai.chat.completions.create({
-    model: "gpt-5.5",
+    model: "gpt-5.4-mini",
     messages: [
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
+    temperature: 0.7,
     response_format: { type: "json_object" },
   });
 
