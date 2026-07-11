@@ -40,7 +40,10 @@ async function buildResumeBuffer(request: Request) {
 
   // @ts-expect-error react-pdf types are loose with jsonb data
   const buffer = await renderToBuffer(<ResumeDocument data={data} />);
-  return { buffer: new Uint8Array(buffer), filename: resumePdfFilename(app.companyName) };
+  return {
+    buffer: new Uint8Array(buffer),
+    filename: resumePdfFilename(data.fullName, app.companyName),
+  };
 }
 
 export async function GET(request: Request) {

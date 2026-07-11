@@ -126,7 +126,10 @@ export function buildResumeDataFromApplication(
   };
 }
 
-export function resumePdfFilename(name: string): string {
-  const safe = name.replace(/[^a-zA-Z0-9]/g, "_") || "Resume";
-  return `${safe}_Resume.pdf`;
+export function resumePdfFilename(name: string, companyName?: string): string {
+  const safeName = name.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "") || "Resume";
+  const safeCompany = companyName
+    ?.replace(/[^a-zA-Z0-9]+/g, "_")
+    .replace(/^_|_$/g, "");
+  return [safeName, safeCompany, "Resume"].filter(Boolean).join("_") + ".pdf";
 }

@@ -53,9 +53,14 @@ export async function GET(request: Request) {
   const uint8 = new Uint8Array(buffer);
 
   const preview = searchParams.get("preview") === "1";
+  const safeName =
+    data.fullName.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "") || "Applicant";
+  const safeCompany =
+    app.companyName.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "") || "Company";
+  const filename = `${safeName}_${safeCompany}_Cover_Letter.pdf`;
   const disposition = preview
-    ? `inline; filename="${app.companyName.replace(/[^a-zA-Z0-9]/g, "_")}_CoverLetter.pdf"`
-    : `attachment; filename="${app.companyName.replace(/[^a-zA-Z0-9]/g, "_")}_CoverLetter.pdf"`;
+    ? `inline; filename="${filename}"`
+    : `attachment; filename="${filename}"`;
 
   return new NextResponse(uint8, {
     headers: {
