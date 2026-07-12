@@ -1,7 +1,12 @@
 import { db } from "@/db";
 import { applications, masterProfiles } from "@/db/schema";
 import { eq, and } from "drizzle-orm";
-import { limitTailoredSkills, MAX_TAILORED_SKILLS } from "@/lib/types";
+import {
+  isSectionVisible,
+  limitTailoredSkills,
+  MAX_TAILORED_SKILLS,
+  normalizeSectionConfig,
+} from "@/lib/types";
 import OpenAI from "openai";
 
 const openai = new OpenAI({ apiKey: process.env.OPENAI_API_KEY });
@@ -38,6 +43,10 @@ export async function tailorApplication(applicationId: string, userId: string) {
 
   const app = appRows[0];
   const profile = profileRows[0];
+  const sectionConfig = normalizeSectionConfig(
+    profile.sectionConfig as Parameters<typeof normalizeSectionConfig>[0]
+  );
+  const hiddenSections = sectionConfig.filter((section) => !section.visible);
 
   const systemPrompt = `You are a professional resume writer. Given the candidate's master profile and a job description, produce:
 
@@ -69,6 +78,11 @@ CRITICAL RULES:
 - If the candidate has no projects, return an empty array for tailoredProjects.
 - If the candidate has no hobbies, return an empty array for tailoredHobbies.
 - tailoredSkills must contain at most ${MAX_TAILORED_SKILLS} items, ordered from most to least relevant for this job.
+- The candidate has hidden these resume sections: ${
+    hiddenSections.length > 0
+      ? hiddenSections.map((section) => section.type).join(", ")
+      : "none"
+  }. For each hidden section, return an empty string or empty array for its corresponding tailored field. Never restore a section hidden in the profile.
 
 Respond ONLY with valid JSON matching this schema:
 {
@@ -108,7 +122,6 @@ ${app.jobDescription}`;
       { role: "system", content: systemPrompt },
       { role: "user", content: userPrompt },
     ],
-    temperature: 0.7,
     response_format: { type: "json_object" },
   });
 
@@ -118,25 +131,35 @@ ${app.jobDescription}`;
   }
 
   const result = JSON.parse(content) as Record<string, unknown>;
-  const tailoredSkills = limitTailoredSkills(
-    Array.isArray(result.tailoredSkills) ? (result.tailoredSkills as string[]) : []
-  );
-
-  const profileConfig = profile.sectionConfig as unknown[] | null;
-  const sectionConfig =
-    Array.isArray(profileConfig) && profileConfig.length > 0 ? profileConfig : undefined;
+  const tailoredSummary = isSectionVisible(sectionConfig, "summary")
+    ? ((result.tailoredSummary as string) ?? "")
+    : "";
+  const tailoredExperience = isSectionVisible(sectionConfig, "experience")
+    ? (result.tailoredExperience ?? [])
+    : [];
+  const tailoredSkills = isSectionVisible(sectionConfig, "skills")
+    ? limitTailoredSkills(
+        Array.isArray(result.tailoredSkills) ? (result.tailoredSkills as string[]) : []
+      )
+    : [];
+  const tailoredProjects = isSectionVisible(sectionConfig, "projects")
+    ? (result.tailoredProjects ?? profile.projects ?? [])
+    : [];
+  const tailoredHobbies = isSectionVisible(sectionConfig, "hobbies")
+    ? (result.tailoredHobbies ?? profile.hobbies ?? [])
+    : [];
 
   await db
     .update(applications)
     .set({
-      tailoredSummary: (result.tailoredSummary as string) ?? "",
-      tailoredExperience: result.tailoredExperience ?? [],
+      tailoredSummary,
+      tailoredExperience,
       tailoredSkills,
-      tailoredProjects: result.tailoredProjects ?? profile.projects ?? [],
-      tailoredHobbies: result.tailoredHobbies ?? profile.hobbies ?? [],
+      tailoredProjects,
+      tailoredHobbies,
       coverLetterBody: (result.coverLetterBody as string) ?? "",
       status: "generated",
-      ...(sectionConfig ? { sectionConfig } : {}),
+      sectionConfig,
       profileSnapshot: {
         fullName: profile.fullName,
         email: profile.email,
@@ -155,7 +178,11 @@ ${app.jobDescription}`;
 
   return {
     ...result,
+    tailoredSummary,
+    tailoredExperience,
     tailoredSkills,
-    ...(sectionConfig ? { sectionConfig } : {}),
+    tailoredProjects,
+    tailoredHobbies,
+    sectionConfig,
   };
 }
